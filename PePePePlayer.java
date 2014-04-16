@@ -1,6 +1,6 @@
 
 
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.ggp.base.apps.player.detail.DetailPanel;
@@ -20,6 +20,7 @@ import org.ggp.base.util.statemachine.implementation.prover.ProverStateMachine;
 
 public class PePePePlayer extends StateMachineGamer {
 
+	String profondeur;
 	@Override
 	public StateMachine getInitialStateMachine() {
 		return new CachedStateMachine(new ProverStateMachine());
@@ -43,7 +44,7 @@ public class PePePePlayer extends StateMachineGamer {
 		Move selection = null;
 		if(getStateMachine().getRoles().size()==1)
 		{
-			selection = getMoveAccordingCompulsiveDeliberation(moves);
+			//selection = getMoveAccordingCompulsiveDeliberation(moves);
 		}
 		else if(getStateMachine().getRoles().size()==2)
 		{
@@ -84,11 +85,14 @@ public class PePePePlayer extends StateMachineGamer {
 	public Move getMiniMaxMove(List<Move> legalMoves)
 			throws MoveDefinitionException, GoalDefinitionException, TransitionDefinitionException
 	{
+		System.out.println("\n\n getMiniMaxMove");
+		profondeur = "";
 		Move selection = legalMoves.get(0);
 		int miniMaxScore = 0;
 		for( int i=0; i < legalMoves.size(); ++i)
 		{
-			List<Move> moveList = Arrays.asList(legalMoves.get(i));
+			ArrayList<Move> moveList = new ArrayList<Move>();
+			moveList.add(legalMoves.get(i));
 			int tmpMaxScore = getMinScore(moveList, getCurrentState(), 1);
 			if( tmpMaxScore == 100)
 			{
@@ -107,13 +111,16 @@ public class PePePePlayer extends StateMachineGamer {
 	public int getMinScore(List<Move> playersMoves, MachineState currentState, int role)
 			throws TransitionDefinitionException, GoalDefinitionException, MoveDefinitionException
 	{
+		System.out.println(profondeur + "getMinScore");
 		int minScore = 0;
 		List<Move> legalEnemyMoves = getStateMachine().getLegalMoves(currentState, getStateMachine().getRoles().get(role));
 		for( int i=0; i < legalEnemyMoves.size(); ++i)
 		{
 			playersMoves.add(legalEnemyMoves.get(i));
 			MachineState nextState = getStateMachine().getNextState(currentState, playersMoves);
+			profondeur += "  ";
 			int tmpMinScore = getMaxScore(nextState);
+			profondeur.substring(0, profondeur.length()-2);
 			if(tmpMinScore == 0)
 			{
 				return 0;
@@ -129,6 +136,7 @@ public class PePePePlayer extends StateMachineGamer {
 	public int getMaxScore(MachineState currentState)
 			throws TransitionDefinitionException, GoalDefinitionException, MoveDefinitionException
 	{
+		System.out.println(profondeur + "getMaxScore");
 		if(getStateMachine().isTerminal(currentState))
 		{
 			return getStateMachine().getGoal(currentState, getRole());
@@ -138,8 +146,11 @@ public class PePePePlayer extends StateMachineGamer {
 		List<Move> legalMoves = getStateMachine().getLegalMoves(currentState, getRole());
 		for( int i=0; i < legalMoves.size(); ++i)
 		{
-			List<Move> moveList = Arrays.asList(legalMoves.get(i));
+			ArrayList<Move> moveList = new ArrayList<Move>();
+			moveList.add(legalMoves.get(i));
+			profondeur += "  ";
 			int tmpMaxScore = getMinScore(moveList, currentState, moveList.size());
+			profondeur.substring(0, profondeur.length()-2);
 			if(tmpMaxScore == 100)
 			{
 				return 100;
