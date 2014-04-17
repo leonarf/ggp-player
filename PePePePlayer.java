@@ -1,5 +1,3 @@
-
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -93,7 +91,7 @@ public class PePePePlayer extends StateMachineGamer {
 		{
 			ArrayList<Move> moveList = new ArrayList<Move>();
 			moveList.add(legalMoves.get(i));
-			int tmpMaxScore = getMinScore(moveList, getCurrentState(), 1);
+			int tmpMaxScore = getMinScore(moveList, getCurrentState(), 1, 0, 100);
 			if( tmpMaxScore == 100)
 			{
 				selection = legalMoves.get(i);
@@ -108,32 +106,35 @@ public class PePePePlayer extends StateMachineGamer {
 		return selection;
 	}
 
-	public int getMinScore(List<Move> playersMoves, MachineState currentState, int role)
+	public int getMinScore(List<Move> playersMoves, MachineState currentState, int role, int alpha, int beta)
 			throws TransitionDefinitionException, GoalDefinitionException, MoveDefinitionException
 	{
 		System.out.println(profondeur + "getMinScore");
-		int minScore = 0;
 		List<Move> legalEnemyMoves = getStateMachine().getLegalMoves(currentState, getStateMachine().getRoles().get(role));
 		for( int i=0; i < legalEnemyMoves.size(); ++i)
 		{
 			playersMoves.add(legalEnemyMoves.get(i));
 			MachineState nextState = getStateMachine().getNextState(currentState, playersMoves);
 			profondeur += "  ";
-			int tmpMinScore = getMaxScore(nextState);
+			int tmpMaxScore = getMaxScore(nextState, alpha, beta);
 			profondeur.substring(0, profondeur.length()-2);
-			if(tmpMinScore == 0)
+			if(tmpMaxScore == 0)
 			{
 				return 0;
 			}
-			else if(tmpMinScore < minScore)
+			else if(tmpMaxScore < alpha)
 			{
-				minScore = tmpMinScore;
+				return alpha;
+			}
+			else if(tmpMaxScore < beta)
+			{
+				beta = tmpMaxScore;
 			}
 		}
-		return minScore;
+		return beta;
 	}
 
-	public int getMaxScore(MachineState currentState)
+	public int getMaxScore(MachineState currentState, int alpha, int beta)
 			throws TransitionDefinitionException, GoalDefinitionException, MoveDefinitionException
 	{
 		System.out.println(profondeur + "getMaxScore");
@@ -142,25 +143,28 @@ public class PePePePlayer extends StateMachineGamer {
 			return getStateMachine().getGoal(currentState, getRole());
 		}
 
-		int maxScore = 0;
 		List<Move> legalMoves = getStateMachine().getLegalMoves(currentState, getRole());
 		for( int i=0; i < legalMoves.size(); ++i)
 		{
 			ArrayList<Move> moveList = new ArrayList<Move>();
 			moveList.add(legalMoves.get(i));
 			profondeur += "  ";
-			int tmpMaxScore = getMinScore(moveList, currentState, moveList.size());
+			int tmpMinScore = getMinScore(moveList, currentState, moveList.size(), alpha, beta);
 			profondeur.substring(0, profondeur.length()-2);
-			if(tmpMaxScore == 100)
+			if(tmpMinScore == 100)
 			{
 				return 100;
 			}
-			else if(tmpMaxScore > maxScore)
+			else if(tmpMinScore > alpha)
 			{
-				maxScore = tmpMaxScore;
+				alpha = tmpMinScore;
+			}
+			else if(tmpMinScore < beta)
+			{
+				return beta;
 			}
 		}
-		return maxScore;
+		return alpha;
 	}
 
 	@Override
