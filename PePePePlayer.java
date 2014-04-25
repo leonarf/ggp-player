@@ -105,6 +105,11 @@ public class PePePePlayer extends StateMachineGamer {
 					miniMaxScore = tmpMaxScore;
 					selection = legalMoves.get(i);
 				}
+				long currentTime = System.currentTimeMillis();
+				if(currentTime - mStartCalculation >= mAuthorizedTime)
+				{
+					break;
+				}
 			}
 		}
 		System.out.println("Choosing " + selection.toString() + "\n\n");
