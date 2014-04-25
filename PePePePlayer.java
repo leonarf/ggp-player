@@ -19,6 +19,9 @@ import org.ggp.base.util.statemachine.implementation.prover.ProverStateMachine;
 public class PePePePlayer extends StateMachineGamer {
 
 	String profondeur;
+	int myRoleIndex;
+	int roleCount;
+	int movesSelectedCount;
 	@Override
 	public StateMachine getInitialStateMachine() {
 		return new CachedStateMachine(new ProverStateMachine());
@@ -28,6 +31,8 @@ public class PePePePlayer extends StateMachineGamer {
 	public void stateMachineMetaGame(long timeout)
 			throws TransitionDefinitionException, MoveDefinitionException,
 			GoalDefinitionException {
+		myRoleIndex = getStateMachine().getRoleIndices().get(getRole());
+		roleCount = getStateMachine().getRoles().size();
 		// TODO Auto-generated method stub
 
 	}
@@ -91,8 +96,19 @@ public class PePePePlayer extends StateMachineGamer {
 			for( int i=0; i < legalMoves.size(); ++i)
 			{
 				profondeur = "";
-				ArrayList<Move> moveList = new ArrayList<Move>();
-				moveList.add(legalMoves.get(i));
+				ArrayList<Move> moveList = new ArrayList<Move>(roleCount);
+				movesSelectedCount = 1;
+				for(int roleIndex=0; roleIndex<roleCount; ++roleIndex)
+				{
+					if (roleIndex == myRoleIndex)
+					{
+						moveList.add(legalMoves.get(i));
+					}
+					else
+					{
+						moveList.add(null);
+					}
+				}
 				System.out.println("\n\n getMiniMaxMove : " + legalMoves.get(i).toString());
 				int tmpMaxScore = getMinScore(moveList, getCurrentState(), 1, 0, 100);
 				System.out.println("getMiniMaxMove : tmpMaxScore=" + tmpMaxScore + " i=" + i + " legalMoves.size()=" + legalMoves.size());
@@ -116,11 +132,28 @@ public class PePePePlayer extends StateMachineGamer {
 	public int getMinScore(List<Move> playersMoves, MachineState currentState, int role, int alpha, int beta)
 			throws TransitionDefinitionException, GoalDefinitionException, MoveDefinitionException
 	{
+		if(roleCount == 1)
+		{
+			MachineState nextState = getStateMachine().getNextState(currentState, playersMoves);
+			profondeur += "  ";
+			int score = getMaxScore(nextState, alpha, beta);
+			profondeur = profondeur.substring(0, profondeur.length()-2);
+			return score;
+		}
 		List<Move> legalEnemyMoves = getStateMachine().getLegalMoves(currentState, getStateMachine().getRoles().get(role));
 		for( int i=0; i < legalEnemyMoves.size(); ++i)
 		{
 			System.out.println(profondeur + "getMinScore : " + legalEnemyMoves.get(i).toString() + " " + legalEnemyMoves.size() + " possible moves");
-			playersMoves.add(legalEnemyMoves.get(i));
+			movesSelectedCount++;
+			for(int roleIndex=0; roleIndex<roleCount; ++roleIndex)
+			{
+				if (playersMoves.get(roleIndex) == null)
+				{
+					playersMoves.remove(roleIndex);
+					playersMoves.add(roleIndex, legalEnemyMoves.get(i));
+					break;
+				}
+			}
 			MachineState nextState = getStateMachine().getNextState(currentState, playersMoves);
 			profondeur += "  ";
 			int tmpMaxScore = getMaxScore(nextState, alpha, beta);
