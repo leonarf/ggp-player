@@ -29,23 +29,44 @@ public class PePePePlayer extends StateMachineGamer {
 	long mStartCalculation;
 	long mAuthorizedTime;
 	boolean mInitialization;
+	boolean debugMode;
 	@Override
 	public StateMachine getInitialStateMachine() {
 		return new CachedStateMachine(new ProverStateMachine());
+	}
+
+	public void logDebug(String log)
+	{
+		if(debugMode)
+		{
+			System.out.println(log);
+		}
 	}
 
 	@Override
 	public void stateMachineMetaGame(long timeout)
 			throws TransitionDefinitionException, MoveDefinitionException,
 			GoalDefinitionException {
+		System.out.println("timeout : " + timeout);
+		timeout = 10000;
 		mStartCalculation = System.currentTimeMillis();
-		mAuthorizedTime = timeout - 5;
+		System.out.println("timeout : " + timeout);
+		mAuthorizedTime = timeout - 500;
 		mInitialization = true;
 		myRoleIndex = getStateMachine().getRoleIndices().get(getRole());
 		roleCount = getStateMachine().getRoles().size();
 		List<Move> moves = getStateMachine().getLegalMoves(getCurrentState(), getRole());
-		mDepthLimit = 10000000;
-		Move selection = getMiniMaxMove(moves);
+		mDepthLimit = 1;
+		getMiniMaxMove(moves);
+		long currentTime = System.currentTimeMillis();
+		while(currentTime-mStartCalculation < mAuthorizedTime)
+		{
+			mDepthLimit++;
+			getMiniMaxMove(moves);
+			currentTime = System.currentTimeMillis();
+		}
+		mDepthLimit--;
+		debugMode = false;
 	}
 
 	@Override
@@ -53,9 +74,16 @@ public class PePePePlayer extends StateMachineGamer {
 			throws TransitionDefinitionException, MoveDefinitionException,
 			GoalDefinitionException
 	{
+		System.out.println("timeout : " + timeout);
+		timeout = 10000;
 		mStartCalculation = System.currentTimeMillis();
 		mInitialization = false;
-		mAuthorizedTime = timeout - 5;
+		mAuthorizedTime = timeout - 100;
+		System.out.println("timeout : " + timeout);
+		System.out.println("mMyMaxMobility : " + mMyMaxMobility);
+		System.out.println("mMaxEnemyMobility : " + mMaxEnemyMobility);
+		System.out.println("mMaxDepthReached : " + mMaxDepthReached);
+		System.out.println("mDepthLimit : " + mDepthLimit);
 		List<Move> moves = getStateMachine().getLegalMoves(getCurrentState(), getRole());
 		Move selection = null;
 		if(getStateMachine().getRoles().size()<=2)
@@ -63,7 +91,12 @@ public class PePePePlayer extends StateMachineGamer {
 			selection = getMiniMaxMove(moves);
 		}
 		long stop = System.currentTimeMillis();
-
+		/*
+		if(stop - mStartCalculation < mAuthorizedTime/4)
+		{
+			mDepthLimit++;
+		}
+		*/
 		notifyObservers(new GamerSelectedMoveEvent(moves, selection, stop - mStartCalculation));
 		return selection;
 	}
@@ -74,45 +107,47 @@ public class PePePePlayer extends StateMachineGamer {
 		Move selection = legalMoves.get(0);
 		System.out.println("getMiniMaxMove : " + legalMoves.size() + " moves possible");
 		int miniMaxScore = 0;
-		if(legalMoves.size() > 1)
+		for( int i=0; i < legalMoves.size(); ++i)
 		{
-			for( int i=0; i < legalMoves.size(); ++i)
+			profondeur = "";
+			ArrayList<Move> moveList = new ArrayList<Move>(roleCount);
+			movesSelectedCount = 1;
+			int nextRoleToFill = -1;
+			for(int roleIndex=0; roleIndex<roleCount; ++roleIndex)
 			{
-				profondeur = "";
-				ArrayList<Move> moveList = new ArrayList<Move>(roleCount);
-				movesSelectedCount = 1;
-				for(int roleIndex=0; roleIndex<roleCount; ++roleIndex)
+				if (roleIndex == myRoleIndex)
 				{
-					if (roleIndex == myRoleIndex)
+					moveList.add(legalMoves.get(i));
+				}
+				else
+				{
+					if(nextRoleToFill < 0)
 					{
-						moveList.add(legalMoves.get(i));
+						nextRoleToFill = roleIndex;
 					}
-					else
-					{
-						moveList.add(null);
-					}
-				}
-				System.out.println("\n\n getMiniMaxMove : " + legalMoves.get(i).toString());
-				int tmpMaxScore = getMinScore(moveList, getCurrentState(), 1, 0, 100, 0);
-				System.out.println("getMiniMaxMove : tmpMaxScore=" + tmpMaxScore + " i=" + i + " legalMoves.size()=" + legalMoves.size());
-				if( tmpMaxScore == 100)
-				{
-					selection = legalMoves.get(i);
-					break;
-				}
-				else if(tmpMaxScore > miniMaxScore)
-				{
-					miniMaxScore = tmpMaxScore;
-					selection = legalMoves.get(i);
-				}
-				long currentTime = System.currentTimeMillis();
-				if(currentTime - mStartCalculation >= mAuthorizedTime)
-				{
-					break;
+					moveList.add(null);
 				}
 			}
+			System.out.println("getMiniMaxMove : test move " + i + "/" + legalMoves.size() + ": " + legalMoves.get(i).toString());
+			int tmpMaxScore = getMinScore(moveList, getCurrentState(), nextRoleToFill, 0, 100, 0);
+			System.out.println("                 tmpMaxScore=" + tmpMaxScore);
+			if( tmpMaxScore == 100)
+			{
+				selection = legalMoves.get(i);
+				break;
+			}
+			else if(tmpMaxScore > miniMaxScore)
+			{
+				miniMaxScore = tmpMaxScore;
+				selection = legalMoves.get(i);
+			}
+			if( timeoutReached())
+			{
+				mDepthLimit--;
+				break;
+			}
 		}
-		System.out.println("Choosing " + selection.toString() + "\n\n");
+		System.out.println("Choosing " + selection.toString() + " with score " + miniMaxScore + "\n");
 
 		return selection;
 	}
@@ -136,17 +171,9 @@ public class PePePePlayer extends StateMachineGamer {
 		}
 		for( int i=0; i < legalEnemyMoves.size(); ++i)
 		{
-			System.out.println(profondeur + "getMinScore : " + legalEnemyMoves.get(i).toString() + " " + legalEnemyMoves.size() + " possible moves");
+			logDebug(profondeur + "getMinScore : " + legalEnemyMoves.get(i).toString() + " " + legalEnemyMoves.size() + " possible moves");
 			movesSelectedCount++;
-			for(int roleIndex=0; roleIndex<roleCount; ++roleIndex)
-			{
-				if (playersMoves.get(roleIndex) == null)
-				{
-					playersMoves.remove(roleIndex);
-					playersMoves.add(roleIndex, legalEnemyMoves.get(i));
-					break;
-				}
-			}
+			playersMoves.set(role, legalEnemyMoves.get(i));
 			MachineState nextState = getStateMachine().getNextState(currentState, playersMoves);
 			profondeur += "  ";
 			int tmpMaxScore = getMaxScore(nextState, alpha, beta, depth+1);
@@ -163,14 +190,22 @@ public class PePePePlayer extends StateMachineGamer {
 			{
 				beta = tmpMaxScore;
 			}
-			playersMoves.remove(1);
-			long currentTime = System.currentTimeMillis();
-			if(currentTime - mStartCalculation >= mAuthorizedTime)
+			if(timeoutReached())
 			{
 				break;
 			}
 		}
 		return beta;
+	}
+
+	public boolean timeoutReached()
+	{
+		long currentTime = System.currentTimeMillis();
+		if(currentTime - mStartCalculation >= mAuthorizedTime)
+		{
+			return true;
+		}
+		return false;
 	}
 
 	public int getMaxScore(MachineState currentState, int alpha, int beta, int depth)
@@ -179,7 +214,7 @@ public class PePePePlayer extends StateMachineGamer {
 		if(getStateMachine().isTerminal(currentState))
 		{
 			int score = getStateMachine().getGoal(currentState, getRole());
-			System.out.println(profondeur + "terminal state score : " + score);
+			logDebug(profondeur + "terminal state score : " + score);
 			return score;
 		}
 		//update max depth reached
@@ -187,8 +222,7 @@ public class PePePePlayer extends StateMachineGamer {
 		{
 			mMaxDepthReached = depth;
 		}
-		long currentTime = System.currentTimeMillis();
-		if(depth > mDepthLimit || (currentTime - mStartCalculation >= mAuthorizedTime))
+		if(depth > mDepthLimit || timeoutReached())
 		{
 			return evaluateScore(currentState);
 		}
@@ -202,11 +236,27 @@ public class PePePePlayer extends StateMachineGamer {
 
 		for( int i=0; i < legalMoves.size(); ++i)
 		{
-			System.out.println(profondeur + "getMaxScore : " + legalMoves.get(i).toString() + " " + legalMoves.size() + " possible moves");
-			ArrayList<Move> moveList = new ArrayList<Move>();
-			moveList.add(legalMoves.get(i));
+			logDebug(profondeur + "getMaxScore : " + legalMoves.get(i).toString() + " " + legalMoves.size() + " possible moves");
+			ArrayList<Move> moveList = new ArrayList<Move>(roleCount);
+			movesSelectedCount = 1;
+			int nextRoleToFill = -1;
+			for(int roleIndex=0; roleIndex<roleCount; ++roleIndex)
+			{
+				if (roleIndex == myRoleIndex)
+				{
+					moveList.add(legalMoves.get(i));
+				}
+				else
+				{
+					if(nextRoleToFill < 0)
+					{
+						nextRoleToFill = roleIndex;
+					}
+					moveList.add(null);
+				}
+			}
 			profondeur += "  ";
-			int tmpMinScore = getMinScore(moveList, currentState, moveList.size(), alpha, beta, depth);
+			int tmpMinScore = getMinScore(moveList, currentState, nextRoleToFill, alpha, beta, depth);
 			profondeur = profondeur.substring(0, profondeur.length()-2);
 			if(tmpMinScore == 100)
 			{
@@ -220,8 +270,7 @@ public class PePePePlayer extends StateMachineGamer {
 			{
 				return beta;
 			}
-			currentTime = System.currentTimeMillis();
-			if(currentTime - mStartCalculation >= mAuthorizedTime)
+			if( timeoutReached())
 			{
 				break;
 			}
@@ -230,8 +279,29 @@ public class PePePePlayer extends StateMachineGamer {
 	}
 
 	public int evaluateScore(MachineState currentState)
+			throws MoveDefinitionException
 	{
-		return 0;
+		double score;
+		try {
+			score = getStateMachine().getGoal(currentState, getRole());
+		} catch (GoalDefinitionException e) {
+			int legalMovesCount = getStateMachine().getLegalMoves(currentState, getRole()).size();
+			if( legalMovesCount > mMyMaxMobility)
+			{
+				mMyMaxMobility = legalMovesCount;
+				score = 100;
+			}
+			else
+			{
+				score =  (legalMovesCount * 100) / mMyMaxMobility;
+			}
+			System.out.println("evaluateScore return " + score);
+		}
+		if( score == 0)
+		{
+			score++;
+		}
+		return (int) score;
 	}
 
 	@Override
