@@ -33,6 +33,7 @@ public class PePePePlayer extends StateMachineGamer {
 	int mMonteCarloProbeCount;
 	ArrayList<Long> depthTimeList = new ArrayList<Long>();
 	ArrayList<Long> probeTimeList = new ArrayList<Long>();
+	ArrayList<Integer> probeDepthList = new ArrayList<Integer>();
 
 	@Override
 	public StateMachine getInitialStateMachine() {
@@ -72,11 +73,11 @@ public class PePePePlayer extends StateMachineGamer {
 			getMiniMaxMove(moves);
 			currentTime = System.currentTimeMillis();
 		}
-		depthTimeList.add(timeout*2);
 		System.out.println("AlphaBeta calcul time to depth " + mDepthLimit + " exceded timeout");
-		mDepthLimit--;
+		mDepthLimit = depthTimeList.size()-1;
 		debugMode = false;
 		mMonteCarloProbeCount = 4;
+		System.out.println("mDepthLimit : " + mDepthLimit);
 	}
 
 	@Override
@@ -87,26 +88,38 @@ public class PePePePlayer extends StateMachineGamer {
 		System.out.println("timeout : " + timeout);
 		timeout = 10000;
 		mStartCalculation = System.currentTimeMillis();
+		probeTimeList.clear();
 		mInitialization = false;
 		mAuthorizedTime = timeout - 100;
-		System.out.println("mMyMaxMobility : " + mMyMaxMobility);
-		System.out.println("mMaxEnemyMobility : " + mMaxEnemyMobility);
-		System.out.println("mMaxDepthReached : " + mMaxDepthReached);
-		System.out.println("mDepthLimit : " + mDepthLimit);
 		List<Move> moves = getStateMachine().getLegalMoves(getCurrentState(), getRole());
 		Move selection = null;
+		System.out.println("mDepthLimit : " + mDepthLimit);
 		if(getStateMachine().getRoles().size()<=2)
 		{
 			selection = getMiniMaxMove(moves);
 		}
+		System.out.println("mMyMaxMobility : " + mMyMaxMobility);
+		System.out.println("mMaxEnemyMobility : " + mMaxEnemyMobility);
+		System.out.println("mMaxDepthReached : " + mMaxDepthReached);
+		System.out.println("mDepthLimit : " + mDepthLimit);
 		long stop = System.currentTimeMillis();
-		/*
-		if(stop - mStartCalculation < mAuthorizedTime/4)
-		{
-			mDepthLimit++;
+		long totalProbeTime = 0;
+		for (Long time : probeTimeList) {
+			totalProbeTime += time;
 		}
-		*/
-		notifyObservers(new GamerSelectedMoveEvent(moves, selection, stop - mStartCalculation));
+		int totalProbeDepth = 0;
+		for (Integer depth: probeDepthList) {
+			totalProbeDepth += depth;
+		}
+		for (int i=0; i<depthTimeList.size(); ++i) {
+			System.out.println("Time to AlphaBeta to depth " + i + " : " + depthTimeList.get(i));
+		}
+		System.out.println(probeTimeList.size() + " probe sent in " + totalProbeTime + "(average=" + totalProbeTime/probeTimeList.size() + ")");
+		System.out.println("Probes explored " + totalProbeDepth + " state (average=" + totalProbeDepth/probeDepthList.size() + ")");
+		long timeLeft = stop - mStartCalculation;
+		System.out.println(timeLeft + " ms left before timeout");
+
+		notifyObservers(new GamerSelectedMoveEvent(moves, selection, timeLeft));
 		return selection;
 	}
 
@@ -152,6 +165,7 @@ public class PePePePlayer extends StateMachineGamer {
 			if( timeoutReached())
 			{
 				mDepthLimit--;
+				System.out.println("Time out reached in getMiniMaxMove so mDepthLimit=" + mDepthLimit);
 				break;
 			}
 		}
@@ -308,7 +322,8 @@ public class PePePePlayer extends StateMachineGamer {
 			MachineState terminalState = getStateMachine().performDepthCharge(currentState, depthToGo);
 			total += getStateMachine().getGoal(terminalState, getRole());
 			probeTimeList.add(System.currentTimeMillis()-probeStartTime);
-			System.out.println("MonteCarlo probe found terminal state at depth " + depthToGo[0] + " in " + probeTimeList.get(probeTimeList.size()-1) + "ms");
+			probeDepthList.add(depthToGo[0]);
+			//System.out.println("MonteCarlo probe found terminal state at depth " + depthToGo[0] + " in " + probeTimeList.get(probeTimeList.size()-1) + "ms");
 		}
 		return total/mMonteCarloProbeCount;
 	}
