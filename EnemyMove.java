@@ -30,7 +30,7 @@ public class EnemyMove {
 
     public MyMove getMyMove()
     {
-    	return mParent;
+	return mParent;
     }
 
     private List<Move> mJointMoves;
