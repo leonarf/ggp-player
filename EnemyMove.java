@@ -28,6 +28,11 @@ public class EnemyMove {
 	return mJointMoves;
     }
 
+    public MyMove getMyMove()
+    {
+    	return mParent;
+    }
+
     private List<Move> mJointMoves;
     private MyMove mParent;
     private StoredState mChild;
