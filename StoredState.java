@@ -1,11 +1,14 @@
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
 import org.ggp.base.util.statemachine.MachineState;
 import org.ggp.base.util.statemachine.Move;
 import org.ggp.base.util.statemachine.Role;
 import org.ggp.base.util.statemachine.StateMachine;
+import org.ggp.base.util.statemachine.exceptions.GoalDefinitionException;
 import org.ggp.base.util.statemachine.exceptions.MoveDefinitionException;
+import org.ggp.base.util.statemachine.exceptions.TransitionDefinitionException;
 
 public class StoredState {
     public StoredState(MachineState state, StateMachine machine, Role role, EnemyMove parent)
@@ -29,24 +32,7 @@ public class StoredState {
     {
 	if (mChildren == null)
 	{
-	    List<Move> legalMoves = mMachine.getLegalMoves(mGameState, mMyRole);
-	    if (legalMoves.size() == 0)
-	    {
-		System.out.println("No legal move found :'(");
-		System.out.println("No legal move found :'(");
-		System.out.println("No legal move found :'(");
-		System.out.println("No legal move found :'(");
-		System.out.println("No legal move found :'(");
-		System.out.println("No legal move found :'(");
-		System.out.println("No legal move found :'(");
-		System.out.println("No legal move found :'(");
-		throw new MoveDefinitionException(mGameState, mMyRole);
-	    }
-	    mChildren = new ArrayList<MyMove>(legalMoves.size());
-	    for (Move move : legalMoves)
-	    {
-		mChildren.add(new MyMove(move, this));
-	    }
+	    calculatedLegalMove();
 	}
 	return mChildren;
     }
@@ -83,6 +69,72 @@ public class StoredState {
 	    return 0;
 	}
 	return mTotalScore / mVisitCount;
+    }
+
+    public int sendProbe(int[] depth) throws GoalDefinitionException, TransitionDefinitionException, MoveDefinitionException
+    {
+    	if (mMachine.isTerminal(mGameState))
+    	{
+    		if(mVisitCount == 0)
+    		{
+    			++mVisitCount;
+    			mTotalScore = mMachine.getGoal(mGameState, mMyRole);
+    		}
+    		return mTotalScore;
+    	    //System.out.println("Probe found terminal state with score = " + score);
+    	} else
+    	{
+    		++mVisitCount;
+    		List<Integer> choices = null;
+    		int choosenMove = 0;
+    		//Des mouvements n'ont jamais été explorés
+    		if(mChildren == null)
+    		{
+    			calculatedLegalMove();
+    		}
+    		if( mVisitCount < mChildren.size())
+    		{
+    			choices = new ArrayList<>(mChildren.size() - mVisitCount);
+    			for(int i=0; i < mChildren.size(); ++i)
+    			{
+    				if(mChildren.get(i).getVisitCount() == 0)
+    				{
+    					choices.add(i);
+    				}
+    			}
+    			choosenMove = choices.get(new Random().nextInt(choices.size()));
+    		}
+    		//Tous les mouvements ont été explorés au moins une fois
+    		else
+    		{
+    			choosenMove = new Random().nextInt(mChildren.size());
+    		}
+    		int score = mChildren.get(choosenMove).sendProbe(depth);
+    	    mTotalScore += score;
+    	    return score;
+    	}
+    }
+
+    private void calculatedLegalMove() throws MoveDefinitionException
+    {
+    	List<Move> legalMoves = mMachine.getLegalMoves(mGameState, mMyRole);
+	    if (legalMoves.size() == 0)
+	    {
+			System.out.println("No legal move found :'(");
+			System.out.println("No legal move found :'(");
+			System.out.println("No legal move found :'(");
+			System.out.println("No legal move found :'(");
+			System.out.println("No legal move found :'(");
+			System.out.println("No legal move found :'(");
+			System.out.println("No legal move found :'(");
+			System.out.println("No legal move found :'(");
+			throw new MoveDefinitionException(mGameState, mMyRole);
+	    }
+	    mChildren = new ArrayList<MyMove>(legalMoves.size());
+	    for (Move move : legalMoves)
+	    {
+	    	mChildren.add(new MyMove(move, this));
+	    }
     }
 
     private int mVisitCount;
