@@ -58,19 +58,18 @@ public class PePePePlayer extends StateMachineGamer {
     public void stateMachineMetaGame(long timeout) throws TransitionDefinitionException, MoveDefinitionException,
 	    GoalDefinitionException
     {
-	System.out.println("timeout : " + timeout);
-	timeout = 10000;
 	mStartCalculation = System.currentTimeMillis();
-	mAuthorizedTime = timeout - 500;
+	mAuthorizedTime = timeout - 300;
 	mInitialization = true;
 	myRoleIndex = getStateMachine().getRoleIndices().get(getRole());
 	roleCount = getStateMachine().getRoles().size();
 	mCurrentState = new StoredState(getCurrentState(), getStateMachine(), getRole(), null);
 	mDepthLimit = 0;
+	depthTimeList.clear();
 	long startDepthCalculation = mStartCalculation;
 	getMiniMaxMove(mCurrentState);
 	long currentTime = System.currentTimeMillis();
-	while (currentTime - mStartCalculation < mAuthorizedTime)
+	while (currentTime < mAuthorizedTime)
 	{
 	    depthTimeList.add(currentTime - startDepthCalculation);
 	    System.out.println("AlphaBeta calcul time to depth " + mDepthLimit + " : " + depthTimeList.get(mDepthLimit)
@@ -92,13 +91,11 @@ public class PePePePlayer extends StateMachineGamer {
     public Move stateMachineSelectMove(long timeout) throws TransitionDefinitionException, MoveDefinitionException,
 	    GoalDefinitionException
     {
-	System.out.println("\n\ntime to think = " + timeout);
-	timeout = 10000;
+	mAuthorizedTime = timeout - 300;
 	mStartCalculation = System.currentTimeMillis();
 	probeTimeList.clear();
 	probeDepthList.clear();
-	mAuthorizedTime = timeout - 100;
-
+	System.out.println("\n\ntime to think = " + (timeout-mStartCalculation));
 	List<GdlTerm> gdlMoves = getMatch().getMostRecentMoves();
 	if (gdlMoves != null)
 	{
@@ -134,8 +131,6 @@ public class PePePePlayer extends StateMachineGamer {
 	    }
 	}
 
-	List<Move> moves = getStateMachine().getLegalMoves(getCurrentState(), getRole());
-	System.out.println("possible moves are :            " + moves.toString());
 	List<Move> calculatedMoves = new ArrayList<>();
 	for (MyMove myMove : mCurrentState.getMyLegalMoves())
 	{
@@ -143,7 +138,6 @@ public class PePePePlayer extends StateMachineGamer {
 	}
 	System.out.println("possible moves calculated are : " + calculatedMoves.toString());
 	Move selection = null;
-	System.out.println("mDepthLimit : " + mDepthLimit);
 	if (getStateMachine().getRoles().size() <= 2)
 	{
 	    selection = getMiniMaxMove(mCurrentState);
@@ -168,26 +162,36 @@ public class PePePePlayer extends StateMachineGamer {
 	    logAlphaBetaTimes += depthTimeList.get(i) + "; ";
 	}
 	System.out.println(logAlphaBetaTimes);
+	long averageProbeTime = 0;
 	if (probeTimeList.size() > 0)
 	{
+		averageProbeTime = totalProbeTime / probeTimeList.size();
 	    System.out.println(probeTimeList.size() + " probes sent in " + totalProbeTime + "ms (average="
-		    + totalProbeTime / probeTimeList.size() + "ms)");
+		    + averageProbeTime + "ms)");
 	    System.out.println("Probes explored " + totalProbeDepth + " state (average=" + totalProbeDepth
 		    / probeDepthList.size() + ")");
 	} else
 	{
 	    System.out.println("No probe sent");
 	}
-	long timeLeft = mAuthorizedTime + mStartCalculation - System.currentTimeMillis();
+	long timeLeft = mAuthorizedTime - System.currentTimeMillis();
 	if (timeLeft > totalProbeTime && totalProbeTime > 0)
 	{
 	    System.out.println("mMonteCarloProbeCount was " + mMonteCarloProbeCount);
 	    mMonteCarloProbeCount += timeLeft / totalProbeTime;
 	    System.out.println("mMonteCarloProbeCount now is " + mMonteCarloProbeCount);
 	}
+	if(probeTimeList.size() > 0)
+	{
+		while(mAuthorizedTime - (2*averageProbeTime) > System.currentTimeMillis())
+		{
+			int[] depth = new int[1];
+			mCurrentState.sendProbe(depth);
+		}
+	}
 	System.out.println(timeLeft + " ms left before timeout");
 
-	notifyObservers(new GamerSelectedMoveEvent(moves, selection, timeLeft));
+	notifyObservers(new GamerSelectedMoveEvent(calculatedMoves, selection, timeLeft));
 	return selection;
     }
 
@@ -214,7 +218,10 @@ public class PePePePlayer extends StateMachineGamer {
 	    }
 	    if (timeoutReached())
 	    {
-		mDepthLimit--;
+	    	if(mDepthLimit > 0)
+	    	{
+	    		mDepthLimit--;
+	    	}
 		System.out.println("Time out reached in getMiniMaxMove so mDepthLimit=" + mDepthLimit);
 		break;
 	    }
@@ -258,7 +265,7 @@ public class PePePePlayer extends StateMachineGamer {
     public boolean timeoutReached()
     {
 	long currentTime = System.currentTimeMillis();
-	if (currentTime - mStartCalculation >= mAuthorizedTime)
+	if (currentTime >= mAuthorizedTime)
 	{
 	    return true;
 	}
@@ -323,18 +330,19 @@ public class PePePePlayer extends StateMachineGamer {
     public int monteCarloEvaluation(StoredState currentState) throws TransitionDefinitionException,
 	    MoveDefinitionException, GoalDefinitionException
     {
-	Integer depthToGo = new Integer(0);
+	int[] depthToGo = new int[1];
 	for (int i = 0; i < mMonteCarloProbeCount; ++i)
 	{
 	    long probeStartTime = System.currentTimeMillis();
-	    monteCarloProbe(currentState, depthToGo);
+	    currentState.sendProbe(depthToGo);
+	    //monteCarloProbe(currentState, depthToGo);
 	    probeTimeList.add(System.currentTimeMillis() - probeStartTime);
-	    probeDepthList.add(depthToGo);
+	    probeDepthList.add(depthToGo[0]);
 	}
 	return currentState.getScore();
     }
 
-    public int monteCarloProbe(StoredState currentState, Integer depth) throws GoalDefinitionException,
+    public int monteCarloProbe(StoredState currentState, int[] depth) throws GoalDefinitionException,
 	    TransitionDefinitionException, MoveDefinitionException
     {
 	int score = 0;
@@ -350,7 +358,8 @@ public class PePePePlayer extends StateMachineGamer {
 	    legalMoveCount = randomSelectedMove.getEnemyMoveList().size();
 	    EnemyMove randomSelectedMoves = randomSelectedMove.getEnemyMoveList().get(
 		    new Random().nextInt(legalMoveCount));
-	    score = monteCarloProbe(randomSelectedMoves.getNextState(), ++depth);
+	    ++depth[0];
+	    score = monteCarloProbe(randomSelectedMoves.getNextState(), depth);
 	}
 	return score;
 
