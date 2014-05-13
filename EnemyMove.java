@@ -33,7 +33,13 @@ public class EnemyMove {
 	return mParent;
     }
 
+    public int getVisitCount()
+    {
+    	return mVisitCount;
+    }
+
     private List<Move> mJointMoves;
     private MyMove mParent;
     private StoredState mChild;
+    private int mVisitCount;
 }
