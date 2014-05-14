@@ -21,6 +21,7 @@ import org.ggp.base.util.statemachine.implementation.prover.ProverStateMachine;
 
 public class PePePePlayer extends StateMachineGamer {
 
+    static long MIN_MEMORY_AVAILABLE = 10485760; // 1024*1024*10 = 10 Mio
     int myRoleIndex;
     int roleCount;
     int movesSelectedCount;
@@ -91,7 +92,7 @@ public class PePePePlayer extends StateMachineGamer {
     public Move stateMachineSelectMove(long timeout) throws TransitionDefinitionException, MoveDefinitionException,
 	    GoalDefinitionException
     {
-	mAuthorizedTime = timeout - 300;
+	mAuthorizedTime = timeout - 1000;
 	mStartCalculation = System.currentTimeMillis();
 	probeTimeList.clear();
 	probeDepthList.clear();
@@ -138,10 +139,9 @@ public class PePePePlayer extends StateMachineGamer {
 	}
 	System.out.println("possible moves calculated are : " + calculatedMoves.toString());
 	Move selection = null;
-	if (getStateMachine().getRoles().size() <= 2)
-	{
-	    selection = getMiniMaxMove(mCurrentState);
-	}
+	// selection = getMiniMaxMove(mCurrentState);
+	selection = getMonteCarloMove(mCurrentState);
+
 	System.out.println("mMyMaxMobility : " + mMyMaxMobility);
 	System.out.println("mMaxEnemyMobility : " + mMaxEnemyMobility);
 	System.out.println("mMaxDepthReached : " + mMaxDepthReached);
@@ -193,10 +193,44 @@ public class PePePePlayer extends StateMachineGamer {
 	/* This will return Long.MAX_VALUE if there is no preset limit */
 	long maxMemory = Runtime.getRuntime().maxMemory();
 	/* Maximum amount of memory the JVM will attempt to use */
-	System.out.println("Maximum memory (bytes): " + (maxMemory == Long.MAX_VALUE ? "no limit" : maxMemory));
-	System.out.println("Total memory (bytes): " + Runtime.getRuntime().totalMemory());
-	System.out.println("Memory available (bytes): " + (maxMemory - Runtime.getRuntime().totalMemory()));
+	System.out.println("Maximum memory (Mo): "
+		+ (maxMemory == Long.MAX_VALUE ? "no limit" : (maxMemory / (1024 * 1024))));
+	System.out.println("Total memory (Mo): " + Runtime.getRuntime().totalMemory() / (1024 * 1024));
+	System.out
+		.println("Memory available (Mo): " + (maxMemory - Runtime.getRuntime().totalMemory()) / (1024 * 1024));
 	notifyObservers(new GamerSelectedMoveEvent(calculatedMoves, selection, timeLeft));
+	System.gc();
+	return selection;
+    }
+
+    public long getAvailableMemory()
+    {
+	long maxMemory = Runtime.getRuntime().maxMemory();
+	if (maxMemory == Long.MAX_VALUE)
+	{
+	    return Long.MAX_VALUE;
+	}
+	return maxMemory - Runtime.getRuntime().totalMemory();
+    }
+
+    public Move getMonteCarloMove(StoredState currentState) throws GoalDefinitionException,
+	    TransitionDefinitionException, MoveDefinitionException
+    {
+	int[] depth = new int[1];
+	while (!timeoutReached() && getAvailableMemory() > MIN_MEMORY_AVAILABLE)
+	{
+	    currentState.sendProbe(depth);
+	}
+	int bestScore = -1;
+	Move selection = currentState.getMyLegalMoves().get(0).getMove();
+	for (MyMove move : currentState.getMyLegalMoves())
+	{
+	    if (move.getWorstScore() > bestScore)
+	    {
+		bestScore = move.getWorstScore();
+		selection = move.getMove();
+	    }
+	}
 	return selection;
     }
 
@@ -269,8 +303,7 @@ public class PePePePlayer extends StateMachineGamer {
 
     public boolean timeoutReached()
     {
-	long currentTime = System.currentTimeMillis();
-	if (currentTime >= mAuthorizedTime)
+	if (System.currentTimeMillis() >= mAuthorizedTime)
 	{
 	    return true;
 	}
@@ -336,6 +369,12 @@ public class PePePePlayer extends StateMachineGamer {
 	    MoveDefinitionException, GoalDefinitionException
     {
 	int[] depthToGo = new int[1];
+	if (getAvailableMemory() < MIN_MEMORY_AVAILABLE) // almost out of memory
+	{
+	    System.out.println("Not enough memory for probe. Returning average of " + currentState.getVisitCount()
+		    + " previous probes");
+	    return currentState.getScore();
+	}
 	for (int i = 0; i < mMonteCarloProbeCount; ++i)
 	{
 	    long probeStartTime = System.currentTimeMillis();

@@ -35,7 +35,7 @@ public class EnemyMove {
 
     public int getVisitCount()
     {
-    	return mVisitCount;
+	return mVisitCount;
     }
 
     private List<Move> mJointMoves;
