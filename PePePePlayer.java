@@ -216,10 +216,21 @@ public class PePePePlayer extends StateMachineGamer {
     public Move getMonteCarloMove(StoredState currentState) throws GoalDefinitionException,
 	    TransitionDefinitionException, MoveDefinitionException
     {
-	int[] depth = new int[1];
-	while (!timeoutReached() && getAvailableMemory() > MIN_MEMORY_AVAILABLE)
+	if (getAvailableMemory() > MIN_MEMORY_AVAILABLE) // still a lot of memory
 	{
-	    currentState.sendProbe(depth);
+		int[] depth = new int[1];
+		while (!timeoutReached() && getAvailableMemory() > MIN_MEMORY_AVAILABLE)
+		{
+			long probeStartTime = System.currentTimeMillis();
+			currentState.sendProbe(depth);
+			probeTimeList.add(System.currentTimeMillis() - probeStartTime);
+			probeDepthList.add(depth[0]);
+		}
+	}
+	else // almost out of memory
+	{
+		System.out.println("Not enough memory to launch new probes. Returning average of " + currentState.getVisitCount()
+				+ " previous probes");
 	}
 	int bestScore = -1;
 	Move selection = currentState.getMyLegalMoves().get(0).getMove();
@@ -231,6 +242,7 @@ public class PePePePlayer extends StateMachineGamer {
 		selection = move.getMove();
 	    }
 	}
+	System.out.println("getMonteCarloMove choosing " + selection.toString() + " with score " + bestScore);
 	return selection;
     }
 
