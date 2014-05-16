@@ -22,7 +22,8 @@ import org.ggp.base.util.statemachine.implementation.prover.ProverStateMachine;
 public class PePePePlayer extends StateMachineGamer {
 
 	static long MEGABYTE_TO_BYTE = 1048576; // 1024*1024 = 1 Mio
-    static long MIN_MEMORY_AVAILABLE = MEGABYTE_TO_BYTE * 10; // 10 Mio
+    static long MIN_MEMORY_AVAILABLE = MEGABYTE_TO_BYTE * 50; // 10 Mio
+    static long MAX_PROBES_COUNT = 10000; // 10 Mio
     int myRoleIndex;
     int mDepthLimit;
 
@@ -64,6 +65,14 @@ public class PePePePlayer extends StateMachineGamer {
     public void stateMachineMetaGame(long timeout) throws TransitionDefinitionException, MoveDefinitionException,
 	    GoalDefinitionException
     {
+	System.out.println("New game started!!!");
+	/* This will return Long.MAX_VALUE if there is no preset limit */
+	long maxMemory = Runtime.getRuntime().maxMemory();
+	/* Maximum amount of memory the JVM will attempt to use */
+	System.out.println("Maximum memory (Mo): "
+		+ (maxMemory == Long.MAX_VALUE ? "no limit" : (maxMemory / MEGABYTE_TO_BYTE)));
+	System.out.println("Total memory (Mo): " + Runtime.getRuntime().totalMemory() / MEGABYTE_TO_BYTE);
+	System.out.println("Memory available (Mo): " + (maxMemory - Runtime.getRuntime().totalMemory()) / MEGABYTE_TO_BYTE);
 	mAuthorizedTime = timeout - 300;
 	mInitialization = true;
 	myRoleIndex = getStateMachine().getRoleIndices().get(getRole());
@@ -166,7 +175,7 @@ public class PePePePlayer extends StateMachineGamer {
 	if (getAvailableMemory() > MIN_MEMORY_AVAILABLE) // still a lot of memory
 	{
 		int[] depth = new int[1];
-		while (!timeoutReached() && getAvailableMemory() > MIN_MEMORY_AVAILABLE)
+		while (!timeoutReached() && getAvailableMemory() > MIN_MEMORY_AVAILABLE && probeTimeList.size() < MAX_PROBES_COUNT)
 		{
 			long probeStartTime = System.currentTimeMillis();
 			currentState.sendProbe(depth);
@@ -404,13 +413,23 @@ public class PePePePlayer extends StateMachineGamer {
     {
     	mCurrentState = null;
     	System.gc();
+    	int myScore;
+	try
+	{
+	    myScore = getStateMachine().getGoal(getCurrentState(), getRole());
+	    System.out.println("match finished! I got " + myScore);
+	} catch (GoalDefinitionException e)
+	{
+	    // TODO Auto-generated catch block
+	    e.printStackTrace();
+	}
     }
 
     @Override
     public void stateMachineAbort()
     {
-	// TODO Auto-generated method stub
-
+	mCurrentState = null;
+	System.gc();
     }
 
     @Override

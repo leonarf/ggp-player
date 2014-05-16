@@ -68,6 +68,7 @@ public class MyMove {
 	{
 	    choosenMove = new Random().nextInt(mChildren.size());
 	}
+	++depth[0];
 	return mChildren.get(choosenMove).getNextState().sendProbe(depth);
     }
 
