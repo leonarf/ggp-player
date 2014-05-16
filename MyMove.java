@@ -46,7 +46,7 @@ public class MyMove {
 	++mVisitCount;
 	List<Integer> choices = null;
 	int choosenMove = 0;
-	// Des mouvements n'ont jamais été explorés
+	// Des mouvements n'ont jamais Ã©tÃ© explorÃ©s
 	if (mChildren == null)
 	{
 	    calculateEnemyMoves();
@@ -63,7 +63,7 @@ public class MyMove {
 	    }
 	    choosenMove = choices.get(new Random().nextInt(choices.size()));
 	}
-	// Tous les mouvements ont été explorés au moins une fois
+	// Tous les mouvements ont Ã©tÃ© explorÃ©s au moins une fois
 	else
 	{
 	    choosenMove = new Random().nextInt(mChildren.size());
@@ -74,6 +74,13 @@ public class MyMove {
     public int getWorstScore() throws TransitionDefinitionException, MoveDefinitionException
     {
 	int score = 100;
+	if(mChildren == null)
+	{
+		System.out.println("getWorstScore called but mChildren is null");
+		System.out.println("getWorstScore called but mChildren is null");
+		System.out.println("getWorstScore called but mChildren is null");
+		return 50;
+	}
 	for (EnemyMove enemyMove : mChildren)
 	{
 	    if (enemyMove.getNextState().getScore() < score)
