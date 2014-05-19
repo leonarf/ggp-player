@@ -77,9 +77,6 @@ public class MyMove {
 	int score = 100;
 	if(mChildren == null)
 	{
-		System.out.println("getWorstScore called but mChildren is null");
-		System.out.println("getWorstScore called but mChildren is null");
-		System.out.println("getWorstScore called but mChildren is null");
 		return 50;
 	}
 	for (EnemyMove enemyMove : mChildren)

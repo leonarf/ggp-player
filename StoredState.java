@@ -56,10 +56,6 @@ public class StoredState {
     {
 	++mVisitCount;
 	mTotalScore += score;
-	if (mParent != null)
-	{
-	    mParent.getMyMove().getState().UpdateScore(score);
-	}
     }
 
     public int getScore()
